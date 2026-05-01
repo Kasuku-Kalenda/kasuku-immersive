@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { apiPath } from '@/lib/api';
 
 interface Theme { id: string; name: string; color: string; }
 interface StoryEvent { id: string; slug: string; title: string; position: number; thumbnailUrl: string | null; }
@@ -88,7 +89,7 @@ export default function EventDetailClient({ event, story }: { event: KasukuEvent
 
   useEffect(() => {
     const wikiTitle = getWikiTitle(event.slug, event.title);
-    fetch(`/api/wiki?title=${encodeURIComponent(wikiTitle)}`)
+    fetch(apiPath(`/api/wiki?title=${encodeURIComponent(wikiTitle)}`))
       .then(r => r.json())
       .then(setWiki)
       .catch(() => {});

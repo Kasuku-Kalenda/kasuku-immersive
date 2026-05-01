@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
+import { KASUKU_API } from '@/lib/api';
 
 export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   try {
-    const res = await fetch(`http://localhost/api/v1/events/${id}`, {
+    const res = await fetch(`${KASUKU_API}/events/${id}`, {
       headers: { Accept: 'application/json' },
       cache: 'no-store',
     });

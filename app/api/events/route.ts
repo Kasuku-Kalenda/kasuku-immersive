@@ -1,15 +1,15 @@
 import { NextResponse } from 'next/server';
+import { KASUKU_API } from '@/lib/api';
 
 export async function GET() {
   try {
-    const res = await fetch('http://localhost/api/v1/events?limit=100', {
-      headers: { 'Accept': 'application/json' },
+    const res = await fetch(`${KASUKU_API}/events?limit=200`, {
+      headers: { Accept: 'application/json' },
       cache: 'no-store',
     });
-    if (!res.ok) throw new Error(`API error ${res.status}`);
-    const data = await res.json();
-    return NextResponse.json(data);
-  } catch (e) {
-    return NextResponse.json({ items: [], page: 1, totalPages: 0, totalItems: 0 }, { status: 200 });
+    if (!res.ok) throw new Error(`${res.status}`);
+    return NextResponse.json(await res.json());
+  } catch {
+    return NextResponse.json({ items: [] });
   }
 }

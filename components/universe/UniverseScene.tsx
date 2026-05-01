@@ -10,6 +10,7 @@ import ConstellationLines from './ConstellationLines';
 import ConstellationLabel from './ConstellationLabel';
 import SearchBar from './SearchBar';
 import { KasukuEvent, getStarPosition } from '@/lib/events';
+import { apiPath } from '@/lib/api';
 
 interface Story {
   id: string;
@@ -169,7 +170,7 @@ export default function UniverseScene({ events, focusSlug }: { events: KasukuEve
   const [warpFlash, setWarpFlash] = useState(false);
 
   useEffect(() => {
-    fetch('/api/stories')
+    fetch(apiPath('/api/stories'))
       .then(r => r.json())
       .then(d => setStories(d.items ?? []))
       .catch(() => {});

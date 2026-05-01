@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { KasukuEvent } from '@/lib/events';
+import { apiPath } from '@/lib/api';
 
 const UniverseScene = dynamic(
   () => import('@/components/universe/UniverseScene'),
@@ -48,7 +49,7 @@ export default function HomeClient() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch('/api/events')
+    fetch(apiPath('/api/events'))
       .then(r => r.json())
       .then(data => {
         const items: KasukuEvent[] = data.items ?? [];
