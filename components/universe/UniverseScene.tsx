@@ -290,6 +290,42 @@ export default function UniverseScene({ events, focusSlug }: { events: KasukuEve
         />
       )}
 
+      {/* Retour Kasuku Kalenda — discret, coin bas-gauche */}
+      <a
+        href="/"
+        onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.opacity = '0.85'; (e.currentTarget as HTMLAnchorElement).style.transform = 'translateY(-1px)'; }}
+        onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.opacity = '0.35'; (e.currentTarget as HTMLAnchorElement).style.transform = 'translateY(0)'; }}
+        style={{
+          position: 'fixed', bottom: 20, left: 20,
+          zIndex: 20,
+          display: 'flex', alignItems: 'center', gap: 7,
+          padding: '6px 12px 6px 8px',
+          borderRadius: 99,
+          background: 'rgba(4,8,18,0.7)',
+          border: '1px solid rgba(255,255,255,0.1)',
+          backdropFilter: 'blur(10px)',
+          textDecoration: 'none',
+          opacity: 0.35,
+          transition: 'opacity 0.25s ease, transform 0.25s ease',
+          cursor: 'pointer',
+        }}
+      >
+        {/* Flèche gauche */}
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="rgba(250,248,245,0.7)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M15 18l-6-6 6-6"/>
+        </svg>
+        <span style={{
+          fontFamily: 'var(--font-display)',
+          fontSize: '0.6rem',
+          letterSpacing: '0.14em',
+          textTransform: 'uppercase',
+          color: 'rgba(250,248,245,0.7)',
+          fontWeight: 500,
+        }}>
+          Kasuku Kalenda
+        </span>
+      </a>
+
       {/* Watermark — Kasuku × AFRIKIA */}
       <div
         onMouseEnter={e => (e.currentTarget.style.opacity = '0.7')}
