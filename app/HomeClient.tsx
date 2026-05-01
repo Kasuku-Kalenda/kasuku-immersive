@@ -49,14 +49,24 @@ export default function HomeClient() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(apiPath('/api/events'))
-      .then(r => r.json())
-      .then(data => {
-        const items: KasukuEvent[] = data.items ?? [];
-        setEvents(items.length > 0 ? items : DEMO_EVENTS);
-      })
-      .catch(() => setEvents(DEMO_EVENTS))
-      .finally(() => setLoading(false));
+    let cancelled = false;
+
+    const loadEvents = () =>
+      fetch(apiPath('/api/events'))
+        .then(r => r.json())
+        .then(data => {
+          if (cancelled) return;
+          const items: KasukuEvent[] = data.items ?? [];
+          setEvents(items.length > 0 ? items : DEMO_EVENTS);
+        })
+        .catch(() => { if (!cancelled) setEvents(DEMO_EVENTS); })
+        .finally(() => { if (!cancelled) setLoading(false); });
+
+    loadEvents();
+
+    // Refresh every 60 s so new events created in Kasuku appear automatically
+    const interval = setInterval(loadEvents, 60_000);
+    return () => { cancelled = true; clearInterval(interval); };
   }, []);
 
   if (loading) {

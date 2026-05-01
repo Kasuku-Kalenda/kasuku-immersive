@@ -8,6 +8,7 @@ import EventStar from './EventStar';
 import HolographicCard from './HolographicCard';
 import ConstellationLines from './ConstellationLines';
 import ConstellationLabel from './ConstellationLabel';
+import StoryPanel from './StoryPanel';
 import SearchBar from './SearchBar';
 import { KasukuEvent, getStarPosition } from '@/lib/events';
 import { apiPath } from '@/lib/api';
@@ -87,6 +88,7 @@ function Scene({
   warpTarget,
   returning,
   onStarClick,
+  onStoryClick,
   onArrived,
   onReturned,
 }: {
@@ -97,6 +99,7 @@ function Scene({
   warpTarget: THREE.Vector3 | null;
   returning: boolean;
   onStarClick: (event: KasukuEvent, pos: THREE.Vector3) => void;
+  onStoryClick: (story: Story) => void;
   onArrived: () => void;
   onReturned: () => void;
 }) {
@@ -117,7 +120,7 @@ function Scene({
       {/* Constellation lines + labels */}
       <ConstellationLines events={events} stories={stories} />
       {stories.map(story => (
-        <ConstellationLabel key={story.id} story={story} events={events} />
+        <ConstellationLabel key={story.id} story={story} events={events} onOpen={onStoryClick} />
       ))}
 
       {/* Event stars */}
@@ -163,6 +166,7 @@ function WarpFlash({ active }: { active: boolean }) {
 export default function UniverseScene({ events, focusSlug }: { events: KasukuEvent[]; focusSlug?: string | null }) {
   const [stories, setStories] = useState<Story[]>([]);
   const [selectedEvent, setSelectedEvent] = useState<KasukuEvent | null>(null);
+  const [selectedStory, setSelectedStory] = useState<Story | null>(null);
   const [warpTarget, setWarpTarget] = useState<THREE.Vector3 | null>(null);
   const [isWarping, setIsWarping] = useState(false);
   const [returning, setReturning] = useState(false);
@@ -170,10 +174,19 @@ export default function UniverseScene({ events, focusSlug }: { events: KasukuEve
   const [warpFlash, setWarpFlash] = useState(false);
 
   useEffect(() => {
-    fetch(apiPath('/api/stories'))
-      .then(r => r.json())
-      .then(d => setStories(d.items ?? []))
-      .catch(() => {});
+    let cancelled = false;
+
+    const loadStories = () =>
+      fetch(apiPath('/api/stories'))
+        .then(r => r.json())
+        .then(d => { if (!cancelled) setStories(d.items ?? []); })
+        .catch(() => {});
+
+    loadStories();
+
+    // Refresh every 60 s so new stories created in Kasuku appear automatically
+    const interval = setInterval(loadStories, 60_000);
+    return () => { cancelled = true; clearInterval(interval); };
   }, []);
 
   // Auto-warp when returning from event detail page
@@ -242,6 +255,7 @@ export default function UniverseScene({ events, focusSlug }: { events: KasukuEve
           warpTarget={warpTarget}
           returning={returning}
           onStarClick={handleStarClick}
+          onStoryClick={setSelectedStory}
           onArrived={handleArrived}
           onReturned={handleReturned}
         />
@@ -263,6 +277,16 @@ export default function UniverseScene({ events, focusSlug }: { events: KasukuEve
           stories={stories}
           onClose={handleClose}
           onNavigate={handleNavigate}
+        />
+      )}
+
+      {/* Story panel — opens when a constellation label is clicked */}
+      {selectedStory && (
+        <StoryPanel
+          story={selectedStory}
+          events={events}
+          onClose={() => setSelectedStory(null)}
+          onSelectEvent={event => { setSelectedStory(null); warpToEvent(event); }}
         />
       )}
 
