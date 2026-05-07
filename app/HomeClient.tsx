@@ -57,7 +57,18 @@ export default function HomeClient() {
         .then(data => {
           if (cancelled) return;
           const items: KasukuEvent[] = data.items ?? [];
-          setEvents(items.length > 0 ? items : DEMO_EVENTS);
+          const next = items.length > 0 ? items : DEMO_EVENTS;
+          // Only update state if the event list actually changed (avoids
+          // passing a new array reference to UniverseScene every 60 s,
+          // which would re-trigger the focusSlug auto-warp effect and
+          // freeze OrbitControls while isWarping is true).
+          setEvents(prev => {
+            if (
+              prev.length === next.length &&
+              prev.every((e, i) => e.id === next[i].id)
+            ) return prev;
+            return next;
+          });
         })
         .catch(() => { if (!cancelled) setEvents(DEMO_EVENTS); })
         .finally(() => { if (!cancelled) setLoading(false); });

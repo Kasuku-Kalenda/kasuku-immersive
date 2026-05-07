@@ -173,6 +173,9 @@ export default function UniverseScene({ events, focusSlug }: { events: KasukuEve
   const [returning, setReturning] = useState(false);
   const [showCard, setShowCard] = useState(false);
   const [warpFlash, setWarpFlash] = useState(false);
+  // Tracks whether the one-time auto-warp (from ?focus= URL param) has fired,
+  // so events-array refreshes every 60 s don't re-trigger it.
+  const autoWarpFired = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -190,11 +193,16 @@ export default function UniverseScene({ events, focusSlug }: { events: KasukuEve
     return () => { cancelled = true; clearInterval(interval); };
   }, []);
 
-  // Auto-warp when returning from event detail page
+  // Auto-warp when returning from event detail page.
+  // Guard: only fire once per focusSlug — the events array refreshes every
+  // 60 s (HomeClient polling), which would otherwise re-trigger the warp,
+  // flipping isWarping on indefinitely and freezing OrbitControls.
   useEffect(() => {
     if (!focusSlug || events.length === 0) return;
+    if (autoWarpFired.current) return;
     const target = events.find(e => e.slug === focusSlug);
     if (target) {
+      autoWarpFired.current = true;
       const t = setTimeout(() => warpToEvent(target), 600);
       return () => clearTimeout(t);
     }
@@ -208,6 +216,10 @@ export default function UniverseScene({ events, focusSlug }: { events: KasukuEve
     setIsWarping(true);
     setShowCard(false);
     setWarpFlash(true);
+    // Safety net: if the CameraRig animation never fires onArrived (e.g. the
+    // component remounts mid-flight), reset isWarping after 6 s so
+    // OrbitControls is never permanently disabled.
+    setTimeout(() => setIsWarping(false), 6000);
   }, []);
 
   const handleStarClick = useCallback((event: KasukuEvent, pos: THREE.Vector3) => {
@@ -230,6 +242,9 @@ export default function UniverseScene({ events, focusSlug }: { events: KasukuEve
     setShowCard(false);
     setSelectedEvent(null);
     setReturning(true);
+    // Safety net: reset returning after 6 s so OrbitControls is never
+    // permanently disabled if the return animation doesn't complete.
+    setTimeout(() => setReturning(false), 6000);
   }, []);
 
   const handleReturned = useCallback(() => {
