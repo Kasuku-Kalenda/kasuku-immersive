@@ -136,6 +136,7 @@ function Scene({
 
       <CameraRig warpTarget={warpTarget} returning={returning} onArrived={onArrived} onReturned={onReturned} />
       <OrbitControls
+        makeDefault
         enabled={!isWarping && !returning}
         enablePan={false}
         enableZoom
@@ -143,9 +144,12 @@ function Scene({
         maxDistance={80}
         rotateSpeed={0.4}
         zoomSpeed={0.8}
-        touches={{ ONE: 2, TWO: 1 }}
+        // THREE.js OrbitControls internal TOUCH enum (NOT THREE.TOUCH):
+        //   0 = ROTATE, 1 = PAN, 2 = DOLLY_PAN, 3 = DOLLY_ROTATE
+        // ONE finger → rotate; TWO fingers → zoom (pan disabled by enablePan)
+        touches={{ ONE: 0, TWO: 2 }}
         autoRotate={!isWarping && !returning && selectedId === null}
-        autoRotateSpeed={0.15}
+        autoRotateSpeed={0.6}
       />
     </>
   );
