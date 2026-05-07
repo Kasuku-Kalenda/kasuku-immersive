@@ -74,9 +74,10 @@ export default function HolographicCard({
         onClick={e => e.stopPropagation()}
         style={{
           position: 'relative',
-          width: 'min(560px, 92vw)',
-          maxHeight: '90vh',
+          width: 'min(560px, 96vw)',
+          maxHeight: 'min(90vh, calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 32px))',
           overflowY: 'auto',
+          WebkitOverflowScrolling: 'touch' as any,
           borderRadius: '18px',
           border: `1px solid ${color}45`,
           background: 'linear-gradient(160deg, rgba(8,14,26,0.95) 0%, rgba(4,10,20,0.98) 100%)',

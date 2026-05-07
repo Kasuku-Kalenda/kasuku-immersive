@@ -40,13 +40,18 @@ export default function EventStar({ event, position, onClick, isSelected }: Even
         <meshBasicMaterial color={threeColor} transparent opacity={0.1} depthWrite={false} />
       </mesh>
 
-      {/* Core */}
+      {/* Invisible touch hit area — larger target for mobile taps */}
       <mesh
-        ref={meshRef}
         onClick={(e) => { e.stopPropagation(); onClick(position); }}
         onPointerEnter={() => { setHovered(true); document.body.style.cursor = 'pointer'; }}
         onPointerLeave={() => { setHovered(false); document.body.style.cursor = 'default'; }}
       >
+        <sphereGeometry args={[0.5, 8, 8]} />
+        <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+      </mesh>
+
+      {/* Core */}
+      <mesh ref={meshRef}>
         <sphereGeometry args={[0.07, 16, 16]} />
         <meshStandardMaterial
           color={threeColor}

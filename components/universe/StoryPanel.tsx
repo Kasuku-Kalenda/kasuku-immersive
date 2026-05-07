@@ -61,6 +61,9 @@ export default function StoryPanel({ story, events, onClose, onSelectEvent }: St
         transition: 'transform 0.38s cubic-bezier(0.22, 1, 0.36, 1)',
         display: 'flex', flexDirection: 'column',
         overflowY: 'auto', scrollbarWidth: 'none',
+        WebkitOverflowScrolling: 'touch' as any,
+        paddingTop: 'env(safe-area-inset-top, 0px)',
+        paddingRight: 'env(safe-area-inset-right, 0px)',
       }}>
         {/* Scan line top */}
         <div style={{

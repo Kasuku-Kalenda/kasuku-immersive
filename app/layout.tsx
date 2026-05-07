@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { Cinzel, Cinzel_Decorative } from "next/font/google";
 
@@ -17,6 +17,14 @@ const cinzelDecorative = Cinzel_Decorative({
 export const metadata: Metadata = {
   title: "Kasuku — Encyclopédie Immersive Africaine",
   description: "Explorez l'histoire, les civilisations et les cultures africaines dans un univers de connaissance immersif.",
+};
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: 'cover',
 };
 
 export default function RootLayout({

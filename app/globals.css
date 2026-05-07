@@ -76,6 +76,24 @@ html, body {
   to   { opacity: 1; transform: translateY(0)   scale(1); }
 }
 
+/* ── Mobile / Touch critical ──────────────────────────────── */
+/* OrbitControls requires touch-action: none or it fights the browser scroll */
+canvas { touch-action: none; display: block; }
+
+/* Safe area for notched phones */
+:root {
+  --sat: env(safe-area-inset-top,    0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left,   0px);
+  --sar: env(safe-area-inset-right,  0px);
+}
+
+/* Prevent body scroll-bounce on iOS while keeping canvas interactive */
+body { overscroll-behavior: none; }
+
+/* Scrollable panels on iOS */
+.scroll-touch { -webkit-overflow-scrolling: touch; }
+
 /* ── Utilities ─────────────────────────────────────────────── */
 .text-gold {
   background: linear-gradient(90deg, var(--gold-warm), var(--gold), var(--gold-dim), var(--gold), var(--gold-warm));

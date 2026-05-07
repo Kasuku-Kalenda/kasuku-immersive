@@ -115,7 +115,7 @@ function Scene({
   return (
     <>
       <ambientLight intensity={0.05} />
-      <Stars radius={120} depth={80} count={10000} factor={3} saturation={0.3} fade speed={0.5} />
+      <Stars radius={120} depth={80} count={typeof window !== 'undefined' && window.innerWidth < 768 ? 3000 : 10000} factor={3} saturation={0.3} fade speed={0.5} />
 
       {/* Constellation lines + labels */}
       <ConstellationLines events={events} stories={stories} />
@@ -143,6 +143,7 @@ function Scene({
         maxDistance={80}
         rotateSpeed={0.4}
         zoomSpeed={0.8}
+        touches={{ ONE: 2, TWO: 1 }}
         autoRotate={!isWarping && !returning && selectedId === null}
         autoRotateSpeed={0.15}
       />
@@ -243,9 +244,9 @@ export default function UniverseScene({ events, focusSlug }: { events: KasukuEve
   return (
     <>
       <Canvas
-        style={{ position: 'fixed', inset: 0, background: '#06080f' }}
-        camera={{ position: [0, 0, 35], fov: 60, near: 0.1, far: 500 }}
-        gl={{ antialias: true, alpha: false }}
+        style={{ position: 'fixed', inset: 0, background: '#06080f', touchAction: 'none' }}
+        camera={{ position: [0, 0, 35], fov: typeof window !== 'undefined' && window.innerWidth < 768 ? 75 : 60, near: 0.1, far: 500 }}
+        gl={{ antialias: true, alpha: false, powerPreference: 'default' }}
       >
         <Scene
           events={events}
@@ -296,7 +297,9 @@ export default function UniverseScene({ events, focusSlug }: { events: KasukuEve
         onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.opacity = '0.85'; (e.currentTarget as HTMLAnchorElement).style.transform = 'translateY(-1px)'; }}
         onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.opacity = '0.35'; (e.currentTarget as HTMLAnchorElement).style.transform = 'translateY(0)'; }}
         style={{
-          position: 'fixed', bottom: 20, left: 20,
+          position: 'fixed',
+          bottom: 'max(20px, calc(env(safe-area-inset-bottom) + 12px))',
+          left: 'max(20px, env(safe-area-inset-left))',
           zIndex: 20,
           display: 'flex', alignItems: 'center', gap: 7,
           padding: '6px 12px 6px 8px',

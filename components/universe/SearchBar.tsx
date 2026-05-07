@@ -64,8 +64,10 @@ export default function SearchBar({ events, stories, onSelect }: SearchBarProps)
 
   return (
     <div style={{
-      position: 'fixed', top: 20, left: '50%', transform: 'translateX(-50%)',
-      zIndex: 80, width: 'min(520px, 88vw)',
+      position: 'fixed',
+      top: 'max(20px, calc(env(safe-area-inset-top) + 12px))',
+      left: '50%', transform: 'translateX(-50%)',
+      zIndex: 80, width: 'min(520px, 92vw)',
     }}>
       {/* Card shell */}
       <div style={{
