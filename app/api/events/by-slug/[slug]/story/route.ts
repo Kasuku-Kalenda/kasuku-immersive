@@ -1,51 +1,60 @@
 import { NextResponse } from 'next/server';
-import pool from '@/lib/db';
+import { KASUKU_API } from '@/lib/api';
 
+/**
+ * Retourne le récit (story/timeline) auquel appartient cet événement.
+ * Proxie vers GET /api/v1/timelines/slug/:timelineSlug après avoir
+ * résolu le slug de la timeline depuis l'événement.
+ */
 export async function GET(_: Request, { params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   try {
-    // Find which story this event belongs to, and get all events in that story
-    const { rows } = await pool.query(`
-      SELECT
-        s.id AS story_id,
-        s.title AS story_title,
-        s.summary AS story_summary,
-        se_current.position AS current_position,
-        (SELECT COUNT(*) FROM story_events WHERE story_id = s.id) AS total,
-        json_agg(
-          json_build_object(
-            'id', e.id,
-            'slug', e.slug,
-            'title', e.title,
-            'position', se.position,
-            'thumbnailUrl', (
-              SELECT m.url FROM event_media em JOIN media m ON m.id = em.media_id
-              WHERE em.event_id = e.id AND em.is_cover = true LIMIT 1
-            )
-          ) ORDER BY se.position
-        ) AS events
-      FROM events ev
-      JOIN story_events se_current ON se_current.event_id = ev.id
-      JOIN stories s ON s.id = se_current.story_id
-      JOIN story_events se ON se.story_id = s.id
-      JOIN events e ON e.id = se.event_id AND e.deleted_at IS NULL
-      WHERE ev.slug = $1 AND ev.deleted_at IS NULL AND s.status = 'published'
-      GROUP BY s.id, s.title, s.summary, se_current.position
-      LIMIT 1
-    `, [slug]);
+    // 1. Récupérer l'événement pour savoir à quel récit il appartient
+    const evRes = await fetch(`${KASUKU_API}/events/slug/${encodeURIComponent(slug)}`, {
+      headers: { Accept: 'application/json' },
+      cache: 'no-store',
+    });
+    if (!evRes.ok) return NextResponse.json({ story: null });
+    const event = await evRes.json();
 
-    if (rows.length === 0) return NextResponse.json({ story: null });
+    // timelineSlug ou timelineId peut être renseigné sur l'événement
+    const timelineSlug: string | null = event.timelineSlug ?? null;
+    const timelineId:   string | null = event.timelineId   ?? null;
 
-    const row = rows[0];
+    if (!timelineSlug && !timelineId) return NextResponse.json({ story: null });
+
+    // 2. Récupérer le récit complet (avec ses moments)
+    const tlUrl = timelineSlug
+      ? `${KASUKU_API}/timelines/slug/${encodeURIComponent(timelineSlug)}`
+      : `${KASUKU_API}/timelines/${timelineId}`;
+
+    const tlRes = await fetch(tlUrl, {
+      headers: { Accept: 'application/json' },
+      cache: 'no-store',
+    });
+    if (!tlRes.ok) return NextResponse.json({ story: null });
+    const tl = await tlRes.json();
+
+    const moments: any[] = tl.moments ?? [];
+    const currentPosition = moments.findIndex(
+      (m: any) => m.slug === slug || (m as any).eventSlug === slug
+    );
+
     return NextResponse.json({
       story: {
-        id: row.story_id,
-        title: row.story_title,
-        summary: row.story_summary,
-        currentPosition: row.current_position,
-        total: parseInt(row.total),
-        events: row.events,
-      }
+        id:              tl.id,
+        title:           tl.title,
+        summary:         tl.summary,
+        currentPosition: currentPosition >= 0 ? currentPosition : 0,
+        total:           moments.length,
+        events:          moments.map((m: any, i: number) => ({
+          id:           m.id,
+          slug:         m.slug,
+          title:        m.title,
+          position:     m.position ?? i,
+          thumbnailUrl: m.thumbnailUrl ?? null,
+        })),
+      },
     });
   } catch (err) {
     console.error('story for event error', err);

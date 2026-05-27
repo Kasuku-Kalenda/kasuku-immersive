@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation';
-import pool from '@/lib/db';
+import { KASUKU_API } from '@/lib/api';
 import EventDetailClient from './EventDetailClient';
 
 interface PageProps {
@@ -8,68 +8,69 @@ interface PageProps {
 
 async function getEventBySlug(slug: string) {
   try {
-    const { rows } = await pool.query(`
-      SELECT
-        e.id, e.slug, e.lang, e.title, e.summary,
-        e.temporal_type, e.start_date, e.end_date, e.display_date,
-        e.approx_century, e.approx_decade,
-        e.primary_country_code, e.reliability,
-        COALESCE(
-          (SELECT json_agg(json_build_object('id',t.id,'name',t.name,'slug',t.slug,'color',t.color))
-           FROM event_themes et JOIN themes t ON t.id = et.theme_id
-           WHERE et.event_id = e.id), '[]'
-        ) AS themes,
-        (SELECT m.url FROM event_media em JOIN media m ON m.id = em.media_id
-         WHERE em.event_id = e.id AND em.is_cover = true LIMIT 1) AS thumbnail_url
-      FROM events e
-      WHERE e.slug = $1 AND e.deleted_at IS NULL
-      LIMIT 1
-    `, [slug]);
-    if (!rows[0]) return null;
-    const r = rows[0];
+    const res = await fetch(`${KASUKU_API}/events/slug/${encodeURIComponent(slug)}`, {
+      headers: { Accept: 'application/json' },
+      cache: 'no-store',
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
     return {
-      id: r.id, slug: r.slug, lang: r.lang, title: r.title, summary: r.summary,
-      temporalType: r.temporal_type, startDate: r.start_date, endDate: r.end_date,
-      displayDate: r.display_date, approxCentury: r.approx_century, approxDecade: r.approx_decade,
-      primaryCountryCode: r.primary_country_code, reliability: r.reliability,
-      themes: r.themes ?? [], thumbnailUrl: r.thumbnail_url ?? null,
+      id:                 data.id,
+      slug:               data.slug,
+      lang:               data.lang,
+      title:              data.title,
+      summary:            data.summary,
+      temporalType:       data.temporalType ?? data.temporal_type,
+      startDate:          data.startDate    ?? data.start_date,
+      endDate:            data.endDate      ?? data.end_date,
+      displayDate:        data.displayDate  ?? data.display_date,
+      approxCentury:      data.approxCentury ?? data.approx_century,
+      approxDecade:       data.approxDecade  ?? data.approx_decade,
+      primaryCountryCode: data.primaryCountryCode ?? data.primary_country_code,
+      reliability:        data.reliability,
+      themes:             data.themes ?? [],
+      thumbnailUrl:       data.thumbnailUrl ?? data.thumbnail_url ?? null,
     };
   } catch { return null; }
 }
 
-async function getStoryBySlug(slug: string) {
+async function getStoryForEvent(slug: string) {
   try {
-    const { rows } = await pool.query(`
-      SELECT
-        s.id AS story_id, s.title AS story_title, s.summary AS story_summary,
-        se_cur.position AS current_position,
-        (SELECT COUNT(*) FROM story_events WHERE story_id = s.id) AS total,
-        json_agg(json_build_object(
-          'id', e.id, 'slug', e.slug, 'title', e.title, 'position', se.position,
-          'thumbnailUrl', (SELECT m.url FROM event_media em JOIN media m ON m.id=em.media_id
-                          WHERE em.event_id=e.id AND em.is_cover=true LIMIT 1)
-        ) ORDER BY se.position) AS events
-      FROM events ev
-      JOIN story_events se_cur ON se_cur.event_id = ev.id
-      JOIN stories s ON s.id = se_cur.story_id AND s.status = 'published'
-      JOIN story_events se ON se.story_id = s.id
-      JOIN events e ON e.id = se.event_id AND e.deleted_at IS NULL
-      WHERE ev.slug = $1 AND ev.deleted_at IS NULL
-      GROUP BY s.id, s.title, s.summary, se_cur.position
-      LIMIT 1
-    `, [slug]);
-    if (!rows[0]) return null;
-    const r = rows[0];
+    const ev = await getEventBySlug(slug);
+    if (!ev) return null;
+
+    const timelineSlug: string | null = (ev as any).timelineSlug ?? null;
+    const timelineId:   string | null = (ev as any).timelineId   ?? null;
+    if (!timelineSlug && !timelineId) return null;
+
+    const tlUrl = timelineSlug
+      ? `${KASUKU_API}/timelines/slug/${encodeURIComponent(timelineSlug)}`
+      : `${KASUKU_API}/timelines/${timelineId}`;
+
+    const res = await fetch(tlUrl, { headers: { Accept: 'application/json' }, cache: 'no-store' });
+    if (!res.ok) return null;
+    const tl = await res.json();
+
+    const moments: any[] = tl.moments ?? [];
+    const currentPosition = moments.findIndex((m: any) => m.slug === slug);
+
     return {
-      id: r.story_id, title: r.story_title, summary: r.story_summary,
-      currentPosition: r.current_position, total: parseInt(r.total), events: r.events,
+      id:              tl.id,
+      title:           tl.title,
+      summary:         tl.summary,
+      currentPosition: currentPosition >= 0 ? currentPosition : 0,
+      total:           moments.length,
+      events:          moments.map((m: any, i: number) => ({
+        id: m.id, slug: m.slug, title: m.title,
+        position: m.position ?? i, thumbnailUrl: m.thumbnailUrl ?? null,
+      })),
     };
   } catch { return null; }
 }
 
 export default async function EventPage({ params }: PageProps) {
   const { slug } = await params;
-  const [event, story] = await Promise.all([getEventBySlug(slug), getStoryBySlug(slug)]);
+  const [event, story] = await Promise.all([getEventBySlug(slug), getStoryForEvent(slug)]);
   if (!event) notFound();
   return <EventDetailClient event={event} story={story} />;
 }
