@@ -6,9 +6,23 @@ import dynamic from 'next/dynamic';
 import { KasukuEvent } from '@/lib/events';
 import { apiPath } from '@/lib/api';
 
+const Spinner = () => (
+  <div style={{
+    position: 'fixed', inset: 0, background: '#06080f',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+  }}>
+    <div style={{
+      width: '40px', height: '40px', borderRadius: '50%',
+      border: '1px solid rgba(230,126,34,0.2)',
+      borderTopColor: '#E67E22',
+      animation: 'rotate-slow 1s linear infinite',
+    }} />
+  </div>
+);
+
 const UniverseScene = dynamic(
   () => import('@/components/universe/UniverseScene'),
-  { ssr: false }
+  { ssr: false, loading: Spinner }
 );
 
 const DEMO_EVENTS: KasukuEvent[] = [
