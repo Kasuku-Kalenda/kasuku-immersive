@@ -187,7 +187,11 @@ export default function UniverseScene({ events, focusSlug }: { events: KasukuEve
     const loadStories = () =>
       fetch(apiPath('/api/stories'))
         .then(r => r.json())
-        .then(d => { if (!cancelled) setStories(d.items ?? []); })
+        .then(d => {
+          if (!cancelled) setStories(
+            (d.items ?? []).map((s: any) => ({ ...s, eventIds: s.eventIds ?? [] }))
+          );
+        })
         .catch(() => {});
 
     loadStories();
