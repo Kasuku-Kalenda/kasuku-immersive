@@ -25,7 +25,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ slug: stri
          LIMIT 1
         ) AS thumbnail_url
       FROM events e
-      WHERE e.slug = $1 AND e.deleted_at IS NULL
+      WHERE e.slug = $1 AND e.deleted_at IS NULL AND e.status = 'published'
       LIMIT 1
     `, [slug]);
 
