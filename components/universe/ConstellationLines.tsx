@@ -7,7 +7,7 @@ import { KasukuEvent, getStarPosition, getStarColor } from '@/lib/events';
 interface Story {
   id: string;
   title: string;
-  event_ids: string[];
+  eventIds: string[];
 }
 
 interface ConstellationLinesProps {
@@ -31,13 +31,13 @@ export default function ConstellationLines({ events, stories }: ConstellationLin
   const lineObjects = useMemo(() => {
     return stories.flatMap(story => {
       const points: THREE.Vector3[] = [];
-      story.event_ids.forEach(eid => {
+      story.eventIds.forEach(eid => {
         const pos = positionMap.get(eid);
         if (pos) points.push(pos);
       });
       if (points.length < 2) return [];
 
-      const firstEvent = eventMap.get(story.event_ids[0]);
+      const firstEvent = eventMap.get(story.eventIds[0]);
       const color = new THREE.Color(firstEvent ? getStarColor(firstEvent) : '#E67E22');
       const geometry = new THREE.BufferGeometry().setFromPoints(points);
       const material = new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.28 });

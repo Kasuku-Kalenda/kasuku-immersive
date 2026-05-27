@@ -8,7 +8,7 @@ import { KasukuEvent, getStarPosition, getStarColor } from '@/lib/events';
 interface Story {
   id: string;
   title: string;
-  event_ids: string[];
+  eventIds: string[];
 }
 
 interface ConstellationLabelProps {
@@ -21,7 +21,7 @@ export default function ConstellationLabel({ story, events, onOpen }: Constellat
   const [hovered, setHovered] = useState(false);
 
   const { center, color } = useMemo(() => {
-    const storyEvents = story.event_ids
+    const storyEvents = story.eventIds
       .map(id => events.find(e => e.id === id))
       .filter(Boolean) as KasukuEvent[];
 
@@ -39,7 +39,7 @@ export default function ConstellationLabel({ story, events, onOpen }: Constellat
     return { center: centroid, color };
   }, [story, events]);
 
-  const eventCount = story.event_ids.filter(id => events.find(e => e.id === id)).length;
+  const eventCount = story.eventIds.filter(id => events.find(e => e.id === id)).length;
 
   return (
     <Html

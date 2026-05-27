@@ -7,7 +7,7 @@ import { KasukuEvent, formatEventDate, getStarColor } from '@/lib/events';
 interface Story {
   id: string;
   title: string;
-  event_ids: string[];
+  eventIds: string[];
 }
 
 interface HolographicCardProps {
@@ -30,10 +30,10 @@ export default function HolographicCard({
   const color = getStarColor(event);
 
   // Find which story this event belongs to
-  const story = stories.find(s => s.event_ids.includes(event.id));
-  const storyIndex = story ? story.event_ids.indexOf(event.id) : -1;
-  const prevEventId = story && storyIndex > 0 ? story.event_ids[storyIndex - 1] : null;
-  const nextEventId = story && storyIndex < story.event_ids.length - 1 ? story.event_ids[storyIndex + 1] : null;
+  const story = stories.find(s => s.eventIds.includes(event.id));
+  const storyIndex = story ? story.eventIds.indexOf(event.id) : -1;
+  const prevEventId = story && storyIndex > 0 ? story.eventIds[storyIndex - 1] : null;
+  const nextEventId = story && storyIndex < story.eventIds.length - 1 ? story.eventIds[storyIndex + 1] : null;
   const prevEvent = prevEventId ? allEvents.find(e => e.id === prevEventId) : null;
   const nextEvent = nextEventId ? allEvents.find(e => e.id === nextEventId) : null;
 
@@ -196,7 +196,7 @@ export default function HolographicCard({
                 color: color + 'cc',
                 fontFamily: 'var(--font-display)',
               }}>
-                Récit · {storyIndex + 1}/{story.event_ids.length}
+                Récit · {storyIndex + 1}/{story.eventIds.length}
               </span>
             </div>
           )}

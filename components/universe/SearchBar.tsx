@@ -3,7 +3,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { KasukuEvent } from '@/lib/events';
 
-interface Story { id: string; title: string; event_ids: string[]; }
+interface Story { id: string; title: string; eventIds: string[]; }
 
 interface SearchBarProps {
   events: KasukuEvent[];
@@ -32,7 +32,7 @@ export default function SearchBar({ events, stories, onSelect }: SearchBarProps)
     if (!query.trim() && filter === 'all') return [];
     const q = query.toLowerCase().trim();
     let list = events.filter(e => {
-      if (filter === 'story') return stories.some(s => s.event_ids.includes(e.id));
+      if (filter === 'story') return stories.some(s => s.eventIds.includes(e.id));
       if (filter !== 'all') return e.themes.some(t => t.id === filter);
       return true;
     });
@@ -170,7 +170,7 @@ export default function SearchBar({ events, stories, onSelect }: SearchBarProps)
             </div>
           ) : (
             results.map((event, i) => {
-              const storyForEvent = stories.find(s => s.event_ids.includes(event.id));
+              const storyForEvent = stories.find(s => s.eventIds.includes(event.id));
               const dotColor = event.themes[0]?.color || '#E67E22';
               return (
                 <div

@@ -6,7 +6,7 @@ import { KasukuEvent, getStarColor } from '@/lib/events';
 interface Story {
   id: string;
   title: string;
-  event_ids: string[];
+  eventIds: string[];
 }
 
 interface StoryPanelProps {
@@ -29,7 +29,7 @@ export default function StoryPanel({ story, events, onClose, onSelectEvent }: St
     setTimeout(onClose, 350);
   };
 
-  const storyEvents = story.event_ids
+  const storyEvents = story.eventIds
     .map(id => events.find(e => e.id === id))
     .filter(Boolean) as KasukuEvent[];
 

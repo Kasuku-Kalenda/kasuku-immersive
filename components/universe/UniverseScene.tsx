@@ -16,7 +16,7 @@ import { apiPath } from '@/lib/api';
 interface Story {
   id: string;
   title: string;
-  event_ids: string[];
+  eventIds: string[];
 }
 
 const HOME_POS = new THREE.Vector3(0, 0, 35);
