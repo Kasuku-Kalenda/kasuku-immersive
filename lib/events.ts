@@ -10,6 +10,10 @@ export interface KasukuEvent {
   thumbnailUrl: string | null;
   primaryCountryCode: string | null;
   reliability: string;
+  // Année normalisée, déjà calculée côté API (date exacte ou approximation
+  // par siècle/décennie) — seule clé de tri fiable : `startDate` est absent
+  // pour les événements à date approximative (cf. mode Ligne du temps).
+  sortYear: number;
   themes: { id: string; name: string; color: string }[];
 }
 

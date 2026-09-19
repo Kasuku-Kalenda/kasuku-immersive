@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useEffect, useCallback } from 'react';
+import { useRef, useState, useEffect, useCallback, useMemo } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Stars, OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
@@ -11,6 +11,7 @@ import ConstellationLabel from './ConstellationLabel';
 import StoryPanel from './StoryPanel';
 import SearchBar from './SearchBar';
 import HyperspaceStreaks from './HyperspaceStreaks';
+import TimelineScrubber from './TimelineScrubber';
 import { KasukuEvent, getStarPosition, getStarColor } from '@/lib/events';
 import { apiPath } from '@/lib/api';
 
@@ -80,27 +81,82 @@ function CameraRig({
   return null;
 }
 
+// ── Mode « Ligne du temps » : la caméra glisse en continu d'une étoile à
+// l'autre (interpolation position + lookAt), pilotée par un index flottant
+// mis à jour à haute fréquence par TimelineScrubber (ref, pas de state react
+// à chaque pixel glissé — évite un re-render par frame de drag). Même
+// structure que CameraRig (position en retrait de la cible dans l'axe
+// origine→cible) pour rester cohérent avec le warp discret.
+function TimelineCameraRig({
+  active,
+  indexRef,
+  sortedEvents,
+}: {
+  active: boolean;
+  indexRef: React.MutableRefObject<number>;
+  sortedEvents: KasukuEvent[];
+}) {
+  const { camera } = useThree();
+  const lookAtVec = useRef(new THREE.Vector3());
+  const initialized = useRef(false);
+
+  useEffect(() => { initialized.current = false; }, [active]);
+
+  useFrame(() => {
+    if (!active || sortedEvents.length === 0) return;
+    const idx = indexRef.current;
+    const i0 = Math.max(0, Math.min(sortedEvents.length - 1, Math.floor(idx)));
+    const i1 = Math.max(0, Math.min(sortedEvents.length - 1, Math.ceil(idx)));
+    const t = idx - i0;
+    const p0 = getStarPosition(sortedEvents[i0]);
+    const p1 = getStarPosition(sortedEvents[i1]);
+    const target = new THREE.Vector3().lerpVectors(p0, p1, t);
+
+    const dir = target.clone().normalize();
+    const dist = target.length();
+    const desiredPos = dir.multiplyScalar(Math.max(dist - 5, 2));
+
+    if (!initialized.current) {
+      camera.position.copy(desiredPos);
+      lookAtVec.current.copy(target);
+      initialized.current = true;
+    } else {
+      camera.position.lerp(desiredPos, 0.08);
+      lookAtVec.current.lerp(target, 0.15);
+    }
+    camera.lookAt(lookAtVec.current);
+  });
+
+  return null;
+}
+
 // ── Inner Three.js scene ─────────────────────────────────────────────────────
 function Scene({
   events,
+  sortedEvents,
   stories,
   selectedId,
   warpColor,
   isWarping,
   warpTarget,
   returning,
+  timelineMode,
+  timelineIndexRef,
   onStarClick,
   onStoryClick,
   onArrived,
   onReturned,
 }: {
   events: KasukuEvent[];
+  sortedEvents: KasukuEvent[];
   stories: Story[];
   selectedId: string | null;
   warpColor: string;
   isWarping: boolean;
   warpTarget: THREE.Vector3 | null;
   returning: boolean;
+  timelineMode: boolean;
+  timelineIndexRef: React.MutableRefObject<number>;
   onStarClick: (event: KasukuEvent, pos: THREE.Vector3) => void;
   onStoryClick: (story: Story) => void;
   onArrived: () => void;
@@ -140,9 +196,10 @@ function Scene({
       <HyperspaceStreaks active={isWarping || returning} color={warpColor} />
 
       <CameraRig warpTarget={warpTarget} returning={returning} onArrived={onArrived} onReturned={onReturned} />
+      <TimelineCameraRig active={timelineMode} indexRef={timelineIndexRef} sortedEvents={sortedEvents} />
       <OrbitControls
         makeDefault
-        enabled={!isWarping && !returning}
+        enabled={!isWarping && !returning && !timelineMode}
         enablePan={false}
         enableZoom
         minDistance={3}
@@ -153,7 +210,7 @@ function Scene({
         //   0 = ROTATE, 1 = PAN, 2 = DOLLY_PAN, 3 = DOLLY_ROTATE
         // ONE finger → rotate; TWO fingers → zoom (pan disabled by enablePan)
         touches={{ ONE: 0, TWO: 2 }}
-        autoRotate={!isWarping && !returning && selectedId === null}
+        autoRotate={!isWarping && !returning && !timelineMode && selectedId === null}
         autoRotateSpeed={0.3}
       />
     </>
@@ -185,6 +242,39 @@ export default function UniverseScene({ events, focusSlug }: { events: KasukuEve
   // Tracks whether the one-time auto-warp (from ?focus= URL param) has fired,
   // so events-array refreshes every 60 s don't re-trigger it.
   const autoWarpFired = useRef(false);
+
+  // ── Mode « Ligne du temps » ────────────────────────────────────────────────
+  const sortedEvents = useMemo(
+    () => [...events].sort((a, b) => a.sortYear - b.sortYear),
+    [events]
+  );
+  const [timelineMode, setTimelineMode] = useState(false);
+  // Index flottant à haute fréquence (ref, pas de re-render par pixel glissé) ;
+  // copie arrondie en state pour le HUD (TimelineScrubber) et le highlight
+  // d'étoile, mise à jour à un rythme raisonnable (à chaque scrub, pas chaque frame).
+  const timelineIndexRef = useRef(0);
+  const [timelineIndexDisplay, setTimelineIndexDisplay] = useState(0);
+
+  const enterTimeline = useCallback(() => {
+    setShowCard(false);
+    setSelectedStory(null);
+    timelineIndexRef.current = 0;
+    setTimelineIndexDisplay(0);
+    setTimelineMode(true);
+  }, []);
+
+  const exitTimeline = useCallback(() => {
+    setTimelineMode(false);
+  }, []);
+
+  const scrubTimeline = useCallback((idx: number) => {
+    timelineIndexRef.current = idx;
+    setTimelineIndexDisplay(idx);
+  }, []);
+
+  const currentTimelineEvent = sortedEvents[Math.round(
+    Math.max(0, Math.min(sortedEvents.length - 1, timelineIndexDisplay))
+  )] ?? null;
 
   useEffect(() => {
     let cancelled = false;
@@ -236,13 +326,16 @@ export default function UniverseScene({ events, focusSlug }: { events: KasukuEve
   }, []);
 
   const handleStarClick = useCallback((event: KasukuEvent, pos: THREE.Vector3) => {
-    if (isWarping) return;
+    // En mode Ligne du temps, le scrubber est le seul chemin d'interaction —
+    // un tap direct sur une étoile ferait entrer en conflit TimelineCameraRig
+    // et CameraRig (les deux pilotant la caméra en même temps).
+    if (isWarping || timelineMode) return;
     setSelectedEvent(event);
     setWarpTarget(pos.clone());
     setIsWarping(true);
     setShowCard(false);
     setWarpFlash(true);
-  }, [isWarping]);
+  }, [isWarping, timelineMode]);
 
   const handleArrived = useCallback(() => {
     setIsWarping(false);
@@ -253,12 +346,23 @@ export default function UniverseScene({ events, focusSlug }: { events: KasukuEve
 
   const handleClose = useCallback(() => {
     setShowCard(false);
+    // Ouverte depuis le mode Ligne du temps : la caméra reste où
+    // TimelineCameraRig l'a positionnée, pas de retour à l'origine —
+    // le scrub reprend simplement là où on l'avait laissé.
+    if (timelineMode) return;
     setSelectedEvent(null);
     setReturning(true);
     // Safety net: reset returning after 6 s so OrbitControls is never
     // permanently disabled if the return animation doesn't complete.
     setTimeout(() => setReturning(false), 6000);
-  }, []);
+  }, [timelineMode]);
+
+  const openTimelineCard = useCallback(() => {
+    if (currentTimelineEvent) {
+      setSelectedEvent(currentTimelineEvent);
+      setShowCard(true);
+    }
+  }, [currentTimelineEvent]);
 
   const handleReturned = useCallback(() => {
     setReturning(false);
@@ -266,8 +370,11 @@ export default function UniverseScene({ events, focusSlug }: { events: KasukuEve
 
   const handleNavigate = useCallback((event: KasukuEvent) => {
     setShowCard(false);
+    // Bascule vers la navigation par warp discret : évite que TimelineCameraRig
+    // et CameraRig pilotent la caméra en même temps.
+    if (timelineMode) setTimelineMode(false);
     setTimeout(() => warpToEvent(event), 100);
-  }, [warpToEvent]);
+  }, [warpToEvent, timelineMode]);
 
   return (
     <>
@@ -278,12 +385,15 @@ export default function UniverseScene({ events, focusSlug }: { events: KasukuEve
       >
         <Scene
           events={events}
+          sortedEvents={sortedEvents}
           stories={stories}
-          selectedId={selectedEvent?.id ?? null}
+          selectedId={timelineMode ? (currentTimelineEvent?.id ?? null) : (selectedEvent?.id ?? null)}
           warpColor={selectedEvent ? getStarColor(selectedEvent) : '#E67E22'}
           isWarping={isWarping}
           warpTarget={warpTarget}
           returning={returning}
+          timelineMode={timelineMode}
+          timelineIndexRef={timelineIndexRef}
           onStarClick={handleStarClick}
           onStoryClick={setSelectedStory}
           onArrived={handleArrived}
@@ -299,6 +409,16 @@ export default function UniverseScene({ events, focusSlug }: { events: KasukuEve
         stories={stories}
         onSelect={event => warpToEvent(event)}
       />
+
+      {timelineMode && (
+        <TimelineScrubber
+          events={sortedEvents}
+          index={timelineIndexDisplay}
+          onScrub={scrubTimeline}
+          onExit={exitTimeline}
+          onOpen={openTimelineCard}
+        />
+      )}
 
       {showCard && selectedEvent && (
         <HolographicCard
@@ -348,7 +468,40 @@ export default function UniverseScene({ events, focusSlug }: { events: KasukuEve
         </svg>
       </a>
 
-      {/* Watermark — Kasuku × AFRIKIA */}
+      {/* Bascule Ligne du temps — empilé sous le bouton retour, même gabarit.
+          Masqué pendant le warp/retour (mêmes conflits de rig caméra que les
+          taps directs sur étoile, cf. handleStarClick). */}
+      {!isWarping && !returning && (
+        <button
+          onClick={() => (timelineMode ? exitTimeline() : enterTimeline())}
+          aria-label={timelineMode ? 'Quitter la ligne du temps' : 'Ligne du temps'}
+          style={{
+            position: 'fixed',
+            top: 'max(64px, calc(env(safe-area-inset-top) + 60px))',
+            left: 'max(16px, env(safe-area-inset-left))',
+            zIndex: 20,
+            width: 40, height: 40,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            borderRadius: '50%',
+            background: timelineMode ? 'rgba(230,126,34,0.16)' : 'rgba(4,8,18,0.7)',
+            border: timelineMode ? '1px solid rgba(230,126,34,0.45)' : '1px solid rgba(255,255,255,0.1)',
+            backdropFilter: 'blur(10px)',
+            transition: 'background 0.2s ease, border-color 0.2s ease',
+            cursor: 'pointer',
+          }}
+        >
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none"
+            stroke={timelineMode ? 'rgba(230,126,34,0.9)' : 'rgba(250,248,245,0.85)'}
+            strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="9" />
+            <path d="M12 7v5l3.5 2" />
+          </svg>
+        </button>
+      )}
+
+      {/* Watermark — Kasuku × AFRIKIA, masqué en Ligne du temps (le HUD du bas
+          occupe déjà cette zone, cf. TimelineScrubber). */}
+      {!timelineMode && (
       <div
         onMouseEnter={e => (e.currentTarget.style.opacity = '0.7')}
         onMouseLeave={e => (e.currentTarget.style.opacity = '0.3')}
@@ -398,6 +551,7 @@ export default function UniverseScene({ events, focusSlug }: { events: KasukuEve
           />
         </div>
       </div>
+      )}
     </>
   );
 }
