@@ -93,7 +93,7 @@ export default function StoryPanel({ story, events, onClose, onSelectEvent }: St
             <button
               onClick={handleClose}
               style={{
-                width: 30, height: 30, borderRadius: '50%',
+                width: 38, height: 38, borderRadius: '50%',
                 background: 'rgba(255,255,255,0.05)',
                 border: '1px solid rgba(255,255,255,0.1)',
                 color: 'rgba(250,248,245,0.5)', fontSize: 13,

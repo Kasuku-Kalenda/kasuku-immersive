@@ -1,4 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Inter:wght@300;400;500;600&display=swap');
 @import "tailwindcss";
 
 /* ── Kasuku Design System ─────────────────────────────────── */
@@ -23,8 +22,11 @@
   --ivory:       #FAF8F5;
   --ivory-dim:   rgba(250,248,245,0.65);
 
-  --font-display: 'Cinzel', Georgia, serif;
-  --font-body:    'Inter', system-ui, sans-serif;
+  /* Même famille (Inter, chargée dans layout.tsx) que Native/Web — un seul
+     jeu de graisses joue le rôle de "display" (600-700) et de "body" (400-500),
+     au lieu d'une police serif étrangère à la charte Kasuku. */
+  --font-display: var(--font-inter), system-ui, sans-serif;
+  --font-body:    var(--font-inter), system-ui, sans-serif;
 
   /* Glass card */
   --glass-bg:     rgba(8,18,30,0.82);
@@ -105,3 +107,24 @@ body { overscroll-behavior: none; }
 }
 .font-display { font-family: var(--font-display); }
 .font-body    { font-family: var(--font-body); }
+
+/* ── Mobile-first : mêmes garde-fous que Web/index.css ────────── */
+/* Empêche le double-tap zoom + le halo de surbrillance tactile Android */
+button, a, [role="button"] {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* iOS Safari zoome automatiquement sur tout <input> dont le font-size < 16px
+   au focus — la recherche (SearchBar) est en dessous de ce seuil par design
+   (compacte, desktop-first à l'origine) : on la remonte à 16px uniquement
+   sur petit écran, où cette régression est la plus gênante. */
+@media (max-width: 480px) {
+  .search-input { font-size: 16px !important; }
+}
+
+/* Le raccourci ⌘K n'a aucun sens sans clavier physique — masqué sur tout
+   appareil dont le pointeur principal n'est pas une souris/trackpad. */
+@media not all and (hover: hover) and (pointer: fine) {
+  .kbd-hint { display: none !important; }
+}

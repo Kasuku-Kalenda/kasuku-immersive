@@ -159,12 +159,13 @@ export default function HolographicCard({
             </>
           )}
 
-          {/* Close button */}
+          {/* Close button — 40px, cible tactile confortable (cf. convention
+              min. 44px du site Web, index.css) plutôt que 32px. */}
           <button
             onClick={handleClose}
             style={{
-              position: 'absolute', top: 14, right: 14,
-              width: 32, height: 32, borderRadius: '50%',
+              position: 'absolute', top: 10, right: 10,
+              width: 40, height: 40, borderRadius: '50%',
               background: 'rgba(4,10,20,0.8)',
               border: '1px solid rgba(255,255,255,0.12)',
               color: 'rgba(250,248,245,0.6)',
