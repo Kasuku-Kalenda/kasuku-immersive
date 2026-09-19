@@ -10,7 +10,8 @@ import ConstellationLines from './ConstellationLines';
 import ConstellationLabel from './ConstellationLabel';
 import StoryPanel from './StoryPanel';
 import SearchBar from './SearchBar';
-import { KasukuEvent, getStarPosition } from '@/lib/events';
+import HyperspaceStreaks from './HyperspaceStreaks';
+import { KasukuEvent, getStarPosition, getStarColor } from '@/lib/events';
 import { apiPath } from '@/lib/api';
 
 interface Story {
@@ -84,6 +85,7 @@ function Scene({
   events,
   stories,
   selectedId,
+  warpColor,
   isWarping,
   warpTarget,
   returning,
@@ -95,6 +97,7 @@ function Scene({
   events: KasukuEvent[];
   stories: Story[];
   selectedId: string | null;
+  warpColor: string;
   isWarping: boolean;
   warpTarget: THREE.Vector3 | null;
   returning: boolean;
@@ -134,6 +137,8 @@ function Scene({
         />
       ))}
 
+      <HyperspaceStreaks active={isWarping || returning} color={warpColor} />
+
       <CameraRig warpTarget={warpTarget} returning={returning} onArrived={onArrived} onReturned={onReturned} />
       <OrbitControls
         makeDefault
@@ -149,7 +154,7 @@ function Scene({
         // ONE finger → rotate; TWO fingers → zoom (pan disabled by enablePan)
         touches={{ ONE: 0, TWO: 2 }}
         autoRotate={!isWarping && !returning && selectedId === null}
-        autoRotateSpeed={0.6}
+        autoRotateSpeed={0.3}
       />
     </>
   );
@@ -275,6 +280,7 @@ export default function UniverseScene({ events, focusSlug }: { events: KasukuEve
           events={events}
           stories={stories}
           selectedId={selectedEvent?.id ?? null}
+          warpColor={selectedEvent ? getStarColor(selectedEvent) : '#E67E22'}
           isWarping={isWarping}
           warpTarget={warpTarget}
           returning={returning}
@@ -314,42 +320,32 @@ export default function UniverseScene({ events, focusSlug }: { events: KasukuEve
         />
       )}
 
-      {/* Retour Kasuku Kalenda — discret, coin bas-gauche */}
+      {/* Sortie vers Kasuku Kalenda — coin haut-gauche, même gabarit que le
+          bouton retour de l'app native (cercle 40px, icône seule) : libère le
+          bas de l'écran pour le watermark, sans risque de chevauchement sur
+          petit écran (l'ancienne version, en bas-gauche avec un libellé texte,
+          pouvait toucher le watermark centré sur les téléphones étroits). */}
       <a
         href="/"
-        onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.opacity = '0.85'; (e.currentTarget as HTMLAnchorElement).style.transform = 'translateY(-1px)'; }}
-        onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.opacity = '0.35'; (e.currentTarget as HTMLAnchorElement).style.transform = 'translateY(0)'; }}
+        aria-label="Retour à Kasuku Kalenda"
         style={{
           position: 'fixed',
-          bottom: 'max(20px, calc(env(safe-area-inset-bottom) + 12px))',
-          left: 'max(20px, env(safe-area-inset-left))',
+          top: 'max(16px, calc(env(safe-area-inset-top) + 12px))',
+          left: 'max(16px, env(safe-area-inset-left))',
           zIndex: 20,
-          display: 'flex', alignItems: 'center', gap: 7,
-          padding: '6px 12px 6px 8px',
-          borderRadius: 99,
+          width: 40, height: 40,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          borderRadius: '50%',
           background: 'rgba(4,8,18,0.7)',
           border: '1px solid rgba(255,255,255,0.1)',
           backdropFilter: 'blur(10px)',
           textDecoration: 'none',
-          opacity: 0.35,
-          transition: 'opacity 0.25s ease, transform 0.25s ease',
-          cursor: 'pointer',
+          transition: 'background 0.2s ease',
         }}
       >
-        {/* Flèche gauche */}
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="rgba(250,248,245,0.7)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(250,248,245,0.85)" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
           <path d="M15 18l-6-6 6-6"/>
         </svg>
-        <span style={{
-          fontFamily: 'var(--font-display)',
-          fontSize: '0.6rem',
-          letterSpacing: '0.14em',
-          textTransform: 'uppercase',
-          color: 'rgba(250,248,245,0.7)',
-          fontWeight: 500,
-        }}>
-          Kasuku Kalenda
-        </span>
       </a>
 
       {/* Watermark — Kasuku × AFRIKIA */}
@@ -357,9 +353,13 @@ export default function UniverseScene({ events, focusSlug }: { events: KasukuEve
         onMouseEnter={e => (e.currentTarget.style.opacity = '0.7')}
         onMouseLeave={e => (e.currentTarget.style.opacity = '0.3')}
         style={{
-          position: 'fixed', bottom: 22, left: '50%', transform: 'translateX(-50%)',
+          position: 'fixed',
+          bottom: 'max(22px, calc(env(safe-area-inset-bottom) + 14px))',
+          left: '50%', transform: 'translateX(-50%)',
           zIndex: 10, pointerEvents: 'auto',
           display: 'flex', alignItems: 'center', gap: 14,
+          flexWrap: 'wrap', justifyContent: 'center',
+          maxWidth: 'calc(100vw - 32px)',
           opacity: 0.3, transition: 'opacity 0.4s ease', cursor: 'default',
         }}
       >

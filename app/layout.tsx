@@ -1,17 +1,16 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
-import { Cinzel, Cinzel_Decorative } from "next/font/google";
+import { Inter } from "next/font/google";
 
-const cinzel = Cinzel({
+// Même famille que l'app native et le site Kasuku (Native/src/theme.ts,
+// Web/index.html) — Cinzel n'appartient à aucune charte Kasuku existante et
+// cassait la cohérence visuelle entre l'univers immersif et le reste du
+// produit. Auto-hébergée via next/font (pas de requête réseau externe au
+// premier chargement, important sur mobile/réseau lent).
+const inter = Inter({
   subsets: ["latin"],
-  weight: ["400", "600", "700", "900"],
-  variable: "--font-cinzel",
-});
-
-const cinzelDecorative = Cinzel_Decorative({
-  subsets: ["latin"],
-  weight: ["400", "700"],
-  variable: "--font-cinzel-decorative",
+  weight: ["400", "500", "600", "700", "800", "900"],
+  variable: "--font-inter",
 });
 
 export const metadata: Metadata = {
@@ -33,7 +32,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="fr" className={`h-full ${cinzel.variable} ${cinzelDecorative.variable}`}>
+    <html lang="fr" className={`h-full ${inter.variable}`}>
       <body className="min-h-full flex flex-col">{children}</body>
     </html>
   );
