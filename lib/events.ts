@@ -65,6 +65,39 @@ export function getStarColor(event: KasukuEvent): string {
   return '#a8c4ff';
 }
 
+// Port MinIO fixe en dev (cf. absolu `http://localhost:9000/...` déjà servi
+// par l'API pour la plupart des médias — vérifié en base).
+const MINIO_PORT = '9000';
+
+// L'API sert les médias sous deux formes, toutes deux problématiques hors de
+// la machine de dev :
+//  1. `http://localhost:9000/kasuku-media/...` (MinIO direct) — ne résout que
+//     sur la machine qui fait tourner MinIO.
+//  2. `/storage/fixtures/...` (chemin relatif d'anciennes fixtures) — résolu
+//     par le navigateur contre l'origine COURANTE (ce site immersif), qui n'a
+//     pas de route `/storage`. Vérifié directement dans MinIO (`mc find`) :
+//     le seul bucket public existant est `kasuku-media` — un bucket `kasuku`
+//     supposé par un ancien proxy Vite du back-office n'existe pas. `/storage`
+//     y est donc réécrit comme `kasuku-media`, même convention que le proxy
+//     Vite (`/storage/X` → bucket/X).
+// Sur un téléphone, "localhost" désigne le téléphone lui-même et un chemin
+// relatif pointe vers le mauvais serveur — même bug déjà rencontré et corrigé
+// côté app native (`normalizeMediaUrl`). Pas besoin de config manuelle pour
+// l'hôte : `window.location.hostname` côté client, l'en-tête `Host` de la
+// requête entrante côté serveur (passé en second paramètre).
+export function normalizeMediaUrl<T extends string | null | undefined>(url: T, host: string | null): T {
+  if (!url || !host) return url;
+
+  if (url.startsWith('/storage/')) {
+    return `http://${host}:${MINIO_PORT}${url.replace(/^\/storage/, '/kasuku-media')}` as T;
+  }
+
+  const m = url.match(/^https?:\/\/localhost(:\d+)?\//);
+  if (!m) return url;
+  const port = m[1] ?? '';
+  return url.replace(/^https?:\/\/localhost(:\d+)?/, `http://${host}${port}`) as T;
+}
+
 export function formatEventDate(event: KasukuEvent): string {
   if (event.displayDate) return event.displayDate;
   if (event.startDate) {

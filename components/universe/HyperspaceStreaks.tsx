@@ -17,14 +17,24 @@ const OUTER_RADIUS = 14;
 
 /**
  * « Voyage dans le temps » — traînées lumineuses radiant depuis le centre de
- * l'écran, comme un saut en hyperespace, pendant le warp caméra vers un
- * événement (ou le retour). Un groupe suit la caméra à chaque frame (position
- * recopiée) : les traînées semblent alors défiler AUTOUR du spectateur plutôt
- * qu'autour d'un point fixe de l'univers, ce qui vend l'illusion de vitesse.
+ * l'écran, comme un saut en hyperespace. Deux déclencheurs :
+ *  1. Le warp caméra discret vers un événement (ou le retour) — intensité
+ *     pleine (0.85), comme avant.
+ *  2. La navigation manuelle elle-même (glisser pour tourner, pincer pour
+ *     zoomer) — intensité proportionnelle à la vitesse RÉELLE de la caméra
+ *     (rotation + déplacement mesurés d'une frame à l'autre), plafonnée plus
+ *     bas (0.5) pour rester un effet d'ambiance et non un warp permanent :
+ *     un survol lent de l'univers reste calme, un geste rapide fait
+ *     apparaître les traînées — sensation de « défiler à travers le temps »
+ *     en explorant, pas seulement au moment du saut.
+ *
+ * Un groupe suit la caméra à chaque frame (position recopiée) : les traînées
+ * semblent alors défiler AUTOUR du spectateur plutôt qu'autour d'un point
+ * fixe de l'univers, ce qui vend l'illusion de vitesse.
  *
  * Une seule géométrie/un seul draw call pour les 120 segments (BufferGeometry
  * partagée, positions réécrites en place chaque frame) — le coût est
- * négligeable même quand l'effet est invisible (opacité 0, hors warp).
+ * négligeable même quand l'effet est invisible (opacité 0, hors mouvement).
  */
 export default function HyperspaceStreaks({ active, color = '#E67E22' }: Props) {
   const { camera } = useThree();
@@ -33,6 +43,13 @@ export default function HyperspaceStreaks({ active, color = '#E67E22' }: Props) 
   const dirs = useRef<Float32Array>(new Float32Array(STREAK_COUNT * 3));
   const progress = useRef<Float32Array>(new Float32Array(STREAK_COUNT));
   const speed = useRef<Float32Array>(new Float32Array(STREAK_COUNT));
+
+  // Mesure de la vitesse de navigation manuelle (OrbitControls), indépendante
+  // du warp discret : angle parcouru + distance parcourue depuis la frame
+  // précédente, ramenés à une intensité 0..1 lissée pour éviter les à-coups.
+  const prevQuat = useRef<THREE.Quaternion | null>(null);
+  const prevPos = useRef(new THREE.Vector3());
+  const dragIntensity = useRef(0);
 
   const { geometry, material } = useMemo(() => {
     for (let i = 0; i < STREAK_COUNT; i++) {
@@ -62,11 +79,26 @@ export default function HyperspaceStreaks({ active, color = '#E67E22' }: Props) 
     if (!groupRef.current) return;
     groupRef.current.position.copy(camera.position);
 
-    const targetOpacity = active ? 0.85 : 0;
+    // Vitesse manuelle : angle (rad) + distance parcourus depuis la frame
+    // précédente, divisés par delta pour obtenir une vitesse indépendante du
+    // framerate. Ignorée pendant un warp actif (déjà à pleine intensité).
+    let rawDragSpeed = 0;
+    if (prevQuat.current && delta > 0) {
+      const angularSpeed = prevQuat.current.angleTo(camera.quaternion) / delta;
+      const linearSpeed = prevPos.current.distanceTo(camera.position) / delta;
+      rawDragSpeed = angularSpeed * 1.4 + linearSpeed * 0.05;
+    }
+    prevQuat.current = camera.quaternion.clone();
+    prevPos.current.copy(camera.position);
+    // Lissage exponentiel : évite qu'un unique jitter de frame déclenche un
+    // pic visible, et laisse l'effet s'estomper en douceur au relâchement.
+    dragIntensity.current += (Math.min(1, rawDragSpeed) - dragIntensity.current) * 0.2;
+
+    const targetOpacity = active ? 0.85 : Math.min(0.5, dragIntensity.current);
     material.opacity += (targetOpacity - material.opacity) * 0.15;
     if (material.opacity < 0.01 && !active) return; // rien à animer, effet invisible
 
-    const rate = active ? 1.8 : 0.15;
+    const rate = active ? 1.8 : 0.15 + dragIntensity.current * 1.5;
     const posAttr = geometry.getAttribute('position') as THREE.BufferAttribute;
     const arr = posAttr.array as Float32Array;
 

@@ -70,6 +70,8 @@ export default function HomeClient() {
         .then(r => r.json())
         .then(data => {
           if (cancelled) return;
+          // Le proxy /api/events (route.ts) normalise déjà thumbnailUrl côté
+          // serveur (host réel + port API) — rien à refaire ici.
           const items: KasukuEvent[] = data.items ?? [];
           const next = items.length > 0 ? items : DEMO_EVENTS;
           // Only update state if the event list actually changed (avoids
