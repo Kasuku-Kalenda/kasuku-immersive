@@ -59,6 +59,10 @@ const DEMO_EVENTS: KasukuEvent[] = [
 export default function HomeClient() {
   const searchParams = useSearchParams();
   const focusSlug = searchParams.get('focus');
+  // Chargé depuis la WebView de l'app native (#45) : elle fournit déjà un
+  // bouton retour au même endroit — masquer celui de la page pour ne pas
+  // superposer deux boutons identiques.
+  const embedded = searchParams.get('embedded') === '1';
   const [events, setEvents] = useState<KasukuEvent[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -112,5 +116,5 @@ export default function HomeClient() {
     );
   }
 
-  return <UniverseScene events={events} focusSlug={focusSlug} />;
+  return <UniverseScene events={events} focusSlug={focusSlug} embedded={embedded} />;
 }

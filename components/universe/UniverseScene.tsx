@@ -21,17 +21,19 @@ interface Story {
   eventIds: string[];
 }
 
-const HOME_POS = new THREE.Vector3(0, 0, 35);
-
 // ── Camera warp animation ────────────────────────────────────────────────────
 function CameraRig({
   warpTarget,
   returning,
+  homePos,
+  homeLookAt,
   onArrived,
   onReturned,
 }: {
   warpTarget: THREE.Vector3 | null;
   returning: boolean;
+  homePos: THREE.Vector3;
+  homeLookAt: THREE.Vector3;
   onArrived: () => void;
   onReturned: () => void;
 }) {
@@ -72,8 +74,8 @@ function CameraRig({
       camera.lookAt(warpTarget);
       if (progress.current >= 1) { mode.current = 'idle'; onArrived(); }
     } else if (mode.current === 'return') {
-      camera.position.lerpVectors(startPos.current, HOME_POS, eased);
-      camera.lookAt(0, 0, 0);
+      camera.position.lerpVectors(startPos.current, homePos, eased);
+      camera.lookAt(homeLookAt);
       if (progress.current >= 1) { mode.current = 'idle'; onReturned(); }
     }
   });
@@ -142,6 +144,8 @@ function Scene({
   returning,
   timelineMode,
   timelineIndexRef,
+  centroid,
+  homePos,
   onStarClick,
   onStoryClick,
   onArrived,
@@ -157,6 +161,8 @@ function Scene({
   returning: boolean;
   timelineMode: boolean;
   timelineIndexRef: React.MutableRefObject<number>;
+  centroid: THREE.Vector3;
+  homePos: THREE.Vector3;
   onStarClick: (event: KasukuEvent, pos: THREE.Vector3) => void;
   onStoryClick: (story: Story) => void;
   onArrived: () => void;
@@ -195,10 +201,18 @@ function Scene({
 
       <HyperspaceStreaks active={isWarping || returning} color={warpColor} />
 
-      <CameraRig warpTarget={warpTarget} returning={returning} onArrived={onArrived} onReturned={onReturned} />
+      <CameraRig
+        warpTarget={warpTarget}
+        returning={returning}
+        homePos={homePos}
+        homeLookAt={centroid}
+        onArrived={onArrived}
+        onReturned={onReturned}
+      />
       <TimelineCameraRig active={timelineMode} indexRef={timelineIndexRef} sortedEvents={sortedEvents} />
       <OrbitControls
         makeDefault
+        target={centroid}
         enabled={!isWarping && !returning && !timelineMode}
         enablePan={false}
         enableZoom
@@ -230,7 +244,7 @@ function WarpFlash({ active }: { active: boolean }) {
 }
 
 // ── Main exported component ──────────────────────────────────────────────────
-export default function UniverseScene({ events, focusSlug }: { events: KasukuEvent[]; focusSlug?: string | null }) {
+export default function UniverseScene({ events, focusSlug, embedded }: { events: KasukuEvent[]; focusSlug?: string | null; embedded?: boolean }) {
   const [stories, setStories] = useState<Story[]>([]);
   const [selectedEvent, setSelectedEvent] = useState<KasukuEvent | null>(null);
   const [selectedStory, setSelectedStory] = useState<Story | null>(null);
@@ -242,6 +256,21 @@ export default function UniverseScene({ events, focusSlug }: { events: KasukuEve
   // Tracks whether the one-time auto-warp (from ?focus= URL param) has fired,
   // so events-array refreshes every 60 s don't re-trigger it.
   const autoWarpFired = useRef(false);
+
+  // Centre réel du nuage d'étoiles — les centres de thème sont placés au hasard
+  // (seed) sur toute la sphère (cf. getThemeCenter, lib/events.ts) : avec
+  // seulement ~5 thèmes actifs, leur barycentre s'écarte facilement de
+  // l'origine (0,0,0) sur laquelle la caméra visait par défaut, ce qui
+  // décalait tout le nuage visible d'un côté de l'écran au lieu de le
+  // centrer. On vise et on orbite désormais autour du vrai centre.
+  const centroid = useMemo(() => {
+    if (events.length === 0) return new THREE.Vector3();
+    const sum = new THREE.Vector3();
+    events.forEach((e) => sum.add(getStarPosition(e)));
+    return sum.divideScalar(events.length);
+  }, [events]);
+  const homePos = useMemo(() => centroid.clone().add(new THREE.Vector3(0, 0, 35)), [centroid]);
+  const homePosArray = useMemo((): [number, number, number] => [homePos.x, homePos.y, homePos.z], [homePos]);
 
   // ── Mode « Ligne du temps » ────────────────────────────────────────────────
   const sortedEvents = useMemo(
@@ -326,16 +355,28 @@ export default function UniverseScene({ events, focusSlug }: { events: KasukuEve
   }, []);
 
   const handleStarClick = useCallback((event: KasukuEvent, pos: THREE.Vector3) => {
-    // En mode Ligne du temps, le scrubber est le seul chemin d'interaction —
-    // un tap direct sur une étoile ferait entrer en conflit TimelineCameraRig
-    // et CameraRig (les deux pilotant la caméra en même temps).
-    if (isWarping || timelineMode) return;
+    if (isWarping) return;
+    // En mode Ligne du temps, un tap direct doit rester possible (retour
+    // utilisateur) : on fait glisser le scrub jusqu'à l'index de cet
+    // événement (TimelineCameraRig s'en charge, en douceur) et on ouvre sa
+    // fiche — plutôt que de lancer un warp discret en parallèle, qui
+    // ferait piloter la caméra par deux rigs en même temps.
+    if (timelineMode) {
+      const idx = sortedEvents.findIndex((e) => e.id === event.id);
+      if (idx >= 0) {
+        timelineIndexRef.current = idx;
+        setTimelineIndexDisplay(idx);
+      }
+      setSelectedEvent(event);
+      setShowCard(true);
+      return;
+    }
     setSelectedEvent(event);
     setWarpTarget(pos.clone());
     setIsWarping(true);
     setShowCard(false);
     setWarpFlash(true);
-  }, [isWarping, timelineMode]);
+  }, [isWarping, timelineMode, sortedEvents]);
 
   const handleArrived = useCallback(() => {
     setIsWarping(false);
@@ -380,7 +421,7 @@ export default function UniverseScene({ events, focusSlug }: { events: KasukuEve
     <>
       <Canvas
         style={{ position: 'fixed', inset: 0, background: '#06080f', touchAction: 'none' }}
-        camera={{ position: [0, 0, 35], fov: typeof window !== 'undefined' && window.innerWidth < 768 ? 75 : 60, near: 0.1, far: 500 }}
+        camera={{ position: homePosArray, fov: typeof window !== 'undefined' && window.innerWidth < 768 ? 75 : 60, near: 0.1, far: 500 }}
         gl={{ antialias: true, alpha: false, powerPreference: 'default' }}
       >
         <Scene
@@ -394,6 +435,8 @@ export default function UniverseScene({ events, focusSlug }: { events: KasukuEve
           returning={returning}
           timelineMode={timelineMode}
           timelineIndexRef={timelineIndexRef}
+          centroid={centroid}
+          homePos={homePos}
           onStarClick={handleStarClick}
           onStoryClick={setSelectedStory}
           onArrived={handleArrived}
@@ -444,31 +487,36 @@ export default function UniverseScene({ events, focusSlug }: { events: KasukuEve
           bouton retour de l'app native (cercle 40px, icône seule) : libère le
           bas de l'écran pour le watermark, sans risque de chevauchement sur
           petit écran (l'ancienne version, en bas-gauche avec un libellé texte,
-          pouvait toucher le watermark centré sur les téléphones étroits). */}
-      <a
-        href="/"
-        aria-label="Retour à Kasuku Kalenda"
-        style={{
-          position: 'fixed',
-          top: 'max(16px, calc(env(safe-area-inset-top) + 12px))',
-          left: 'max(16px, env(safe-area-inset-left))',
-          zIndex: 20,
-          width: 40, height: 40,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          borderRadius: '50%',
-          background: 'rgba(4,8,18,0.7)',
-          border: '1px solid rgba(255,255,255,0.1)',
-          backdropFilter: 'blur(10px)',
-          textDecoration: 'none',
-          transition: 'background 0.2s ease',
-        }}
-      >
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(250,248,245,0.85)" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M15 18l-6-6 6-6"/>
-        </svg>
-      </a>
+          pouvait toucher le watermark centré sur les téléphones étroits).
+          Masqué en `embedded` (#45) : la WebView native fournit déjà un
+          bouton retour au même endroit — deux boutons superposés sinon. */}
+      {!embedded && (
+        <a
+          href="/"
+          aria-label="Retour à Kasuku Kalenda"
+          style={{
+            position: 'fixed',
+            top: 'max(16px, calc(env(safe-area-inset-top) + 12px))',
+            left: 'max(16px, env(safe-area-inset-left))',
+            zIndex: 20,
+            width: 40, height: 40,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            borderRadius: '50%',
+            background: 'rgba(4,8,18,0.7)',
+            border: '1px solid rgba(255,255,255,0.1)',
+            backdropFilter: 'blur(10px)',
+            textDecoration: 'none',
+            transition: 'background 0.2s ease',
+          }}
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(250,248,245,0.85)" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M15 18l-6-6 6-6"/>
+          </svg>
+        </a>
+      )}
 
-      {/* Bascule Ligne du temps — empilé sous le bouton retour, même gabarit.
+      {/* Bascule Ligne du temps — empilé sous le bouton retour, même gabarit
+          (remonte à la place du bouton retour quand il est masqué, `embedded`).
           Masqué pendant le warp/retour (mêmes conflits de rig caméra que les
           taps directs sur étoile, cf. handleStarClick). */}
       {!isWarping && !returning && (
@@ -477,6 +525,10 @@ export default function UniverseScene({ events, focusSlug }: { events: KasukuEve
           aria-label={timelineMode ? 'Quitter la ligne du temps' : 'Ligne du temps'}
           style={{
             position: 'fixed',
+            // Toujours en dessous, même en `embedded` : le coin haut-gauche
+            // libéré par le masquage du bouton retour WEB est en fait occupé
+            // par le bouton retour NATIF de l'app (rendu par la WebView hôte,
+            // hors de cette page) — les deux se superposaient exactement.
             top: 'max(64px, calc(env(safe-area-inset-top) + 60px))',
             left: 'max(16px, env(safe-area-inset-left))',
             zIndex: 20,
