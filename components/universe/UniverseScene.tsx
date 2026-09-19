@@ -216,8 +216,12 @@ function Scene({
         enabled={!isWarping && !returning && !timelineMode}
         enablePan={false}
         enableZoom
+        // 80 coupait le recul bien avant le fond d'étoiles d'ambiance (Stars
+        // radius 120 + depth 80, cf. plus haut) : on ne pouvait jamais prendre
+        // assez de recul pour voir l'ensemble du nuage d'un coup. 300 reste
+        // sous le plan de coupe de la caméra (far: 500), large marge.
         minDistance={3}
-        maxDistance={80}
+        maxDistance={300}
         rotateSpeed={0.4}
         zoomSpeed={0.8}
         // THREE.js OrbitControls internal TOUCH enum (NOT THREE.TOUCH):
