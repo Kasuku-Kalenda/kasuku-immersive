@@ -24,8 +24,13 @@ RUN npm ci
 
 COPY . .
 
-# Variables d'environnement de build
-ARG NEXT_PUBLIC_BASE_PATH=/immersive
+# Variables d'environnement de build. Vide par défaut (déploiement à la
+# racine d'un sous-domaine dédié, ex. immersive.kasuku.afrikia.org) — /immersive
+# était un vestige de l'architecture en sous-chemin, piège garanti pour tout
+# déploiement à la racine (404 sur `/`, 200 sur `/immersive/` seulement).
+# Repasser `--build-arg NEXT_PUBLIC_BASE_PATH=/immersive` si un déploiement
+# en sous-chemin redevient nécessaire.
+ARG NEXT_PUBLIC_BASE_PATH=
 ENV NEXT_PUBLIC_BASE_PATH=$NEXT_PUBLIC_BASE_PATH
 ENV NEXT_TELEMETRY_DISABLED=1
 
@@ -36,6 +41,10 @@ FROM node:20-alpine AS runner
 
 WORKDIR /app
 
+# Chaque stage a son propre scope d'ARG — redéclaré ici pour que le
+# healthcheck ci-dessous connaisse le même chemin de base que le build.
+ARG NEXT_PUBLIC_BASE_PATH=
+ENV NEXT_PUBLIC_BASE_PATH=$NEXT_PUBLIC_BASE_PATH
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3001
@@ -55,6 +64,6 @@ USER nextjs
 EXPOSE 3001
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-  CMD wget -qO- http://127.0.0.1:3001/immersive || exit 1
+  CMD wget -qO- http://127.0.0.1:3001${NEXT_PUBLIC_BASE_PATH}/ || exit 1
 
 CMD ["node", "server.js"]
